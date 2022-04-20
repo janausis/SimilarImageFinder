@@ -6,4 +6,4 @@
 
 # Usage
 Just run the python Script with python 3 and the installed packages
-The GUI will then guide you 
+The GUI will then guide you although it isn't the most beautiful
