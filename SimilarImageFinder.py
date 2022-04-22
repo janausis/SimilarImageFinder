@@ -98,7 +98,7 @@ def Main():
 
     root = tk.Tk()
     root.title('Similar Image Finder')
-    root.geometry('300x195')
+    root.geometry('300x220')
     root.config(bg='#222222', bd=0, padx=0, pady=0, highlightthickness=0)
 
     def exit_app():
@@ -115,15 +115,19 @@ def Main():
         tmpRoot.filename = filedialog.askopenfilename(initialdir = os.getcwd(),title = "Input File",filetypes = (("all files","*.*"),))
         file = tmpRoot.filename.replace("\\", "/")
 
-        findInFolder(file)
+        findInFolder(file, i.get())
 
     def inFolder():
-        findInFolder()
+        findInFolder(None, i.get())
 
     tk.Label(root, text='Similar Image Finder', fg="white", bg="#222222", padx=15, pady=10, font=("Calibri", 20, 'bold')).pack()
     tk.Button(root, command=similarToFile, text='Similar to one file', fg="white", bg="#555555", padx=5, pady=3, font=("Calibri", 12)).pack(padx=10, pady=5)
     tk.Button(root, command=inFolder, text='Find all Similar in Folder', fg="white", bg="#555555", padx=5, pady=3, font=("Calibri", 12)).pack(padx=10, pady=5)
-    tk.Button(root, text='Exit', command=exit_app, fg="white", bg="#555555", padx=5, pady=3, font=("Calibri", 12)).pack(padx=10, pady=5)
+
+    i = tk.BooleanVar()
+    c = tk.Checkbutton(root, text = "Auto Remove", variable=i, fg="#777777", bg="#222222", font=("Calibri", 12, 'normal'))
+    c.pack()
+    tk.Button(root, text='Exit', command=exit_app, fg="white", bg="#555555", padx=5, pady=0, font=("Calibri", 12)).pack(padx=10, pady=1)
 
     root.focus_force()
 
@@ -133,7 +137,7 @@ def Main():
     root.mainloop()
 
 
-def findInFolder(MainFile=None):
+def findInFolder(MainFile=None, autoDelete=False):
     import tkinter as tk
     from tkinter import filedialog, messagebox
     from glob import glob
@@ -205,11 +209,11 @@ def findInFolder(MainFile=None):
         # Scan each file for duplicates
         if MainFile is None:
             for f, n in zip(cache, range(len(cache))):
-                singleFile(f, hashList, mylist, True, False, n+1, root2)
+                singleFile(f, hashList, mylist, True, autoDelete, n+1, root2)
                 mylist.yview(tk.END)
                 root2.update_idletasks()
         else:
-            singleFile(MainFile, hashList, mylist, False)
+            singleFile(MainFile, hashList, mylist, False, autoDelete)
             mylist.yview(tk.END)
             root2.update_idletasks()
 
@@ -264,12 +268,24 @@ def singleFile(FileInput, hashList, mylist, repeat, autoDelete=False, n=0, root3
         return
 
     if autoDelete:
-        pass
-        """deletePath = os.path.join(dir, "deleted")
+        deletePath = os.path.join(dir, "deleted").replace("\\", "/")
         if not os.path.exists(deletePath):
             os.mkdir(deletePath)
+
         for file in s["files"]:
-            os.rename(os.path.join(dir, file["filename"]), os.path.join(deletePath, file["filename"]))"""
+            if file["isSelf"]:
+                continue
+
+            dir = s["directory"]
+            f = file["filename"].replace("\\", "/").split("/")[-1]
+            os.rename(os.path.join(dir, f).replace("\\", "/"), os.path.join(deletePath, f).replace("\\", "/"))
+            s["files"].remove(file)
+            mylist.insert(tk.END, f'Removed {file["filename"].split("/")[-1]}')
+            for f in hashList:
+                if file["filename"] == f:
+                    hashList.remove(file)
+
+        return
 
 
     first = 0
