@@ -1,5 +1,6 @@
 # SimilarImageFinder
  Search for similar images in a folder and select which ones to keep
+ Deleted files will be moved in a subfolder and not actually be deleted from the system
  
 # Install required packages
 `pip install -r requirements.txt`
