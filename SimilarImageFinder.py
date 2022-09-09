@@ -3,6 +3,7 @@ import imagehash
 from PIL import Image
 import numpy as np
 import threading
+import argparse
 tmpRoot = None
 slide_num = 0
 total = 0
@@ -46,11 +47,20 @@ def find_similar(location=None, dir=None, similarity=80, hashList=None):
     threshold = 1 - similarity/100
     diff_limit = int(threshold*(hash_size**2))
 
-    hash1 = get_hash(location, hash_size, hashList)
-
     # Initialize json
     data = {"files": "", "similarTo": location, "directory": dir}
     fileList = []
+
+    try:
+        hash1 = get_hash(location, hash_size, hashList)
+    except:
+        fileList.append({"filename": location, "similarity": 0.0, "isSelf": False})
+        # when only the original image is in the list
+        if len(fileList) <= 1:
+            fileList = []
+
+        data["files"] = fileList
+        return data
 
     # Every file in the folder
     for image in fnames:
@@ -159,18 +169,18 @@ def findInFolder(MainFile=None, autoDelete=False):
         pass
 
     # find all image files in this folder
-    png_files = list(glob(path + "/**/*.png", recursive=True))
-    jpg_files = list(glob(path + "/**/*.jpg", recursive=True))
-    bmp_files = list(glob(path + "/**/*.bmp", recursive=True))
-    gif_files = list(glob(path + "/**/*.gif", recursive=True))
-    jpeg_files = list(glob(path + "/**/*.jpeg", recursive=True))
+    png_files = list(glob(path + "*/*.png", recursive=False))
+    jpg_files = list(glob(path + "*/*.jpg", recursive=False))
+    bmp_files = list(glob(path + "*/*.bmp", recursive=False))
+    gif_files = list(glob(path + "*/*.gif", recursive=False))
+    jpeg_files = list(glob(path + "*/*.jpeg", recursive=False))
     cache = png_files + jpg_files + bmp_files + gif_files + jpeg_files
 
     # Log window
     hashList = []
     root2 = tk.Tk()
     root2.title(f'Log')
-    root2.geometry('500x250')
+    root2.geometry('700x350')
     root2.config(bg='#222222', bd=0, padx=0, pady=0, highlightthickness=0)
     center(root2)
 
@@ -293,7 +303,7 @@ def singleFile(FileInput, hashList, mylist, repeat, autoDelete=False, n=0, root3
     # Allow the selection of which files to keep and which to delete
     root = tk.Tk()
     root.title(f'Similar to {FileInput.split("/")[-1]}')
-    root.geometry('800x535')
+    root.geometry('800x800')
     root.config(bg='#222222', bd=0, padx=0, pady=0, highlightthickness=0)
     root.bind('<Escape>', lambda event: root.state('normal'))
     root.bind('<F11>', lambda event: root.state('zoomed'))
@@ -468,7 +478,292 @@ def singleFile(FileInput, hashList, mylist, repeat, autoDelete=False, n=0, root3
     except:
         pass
 
+def singleFile(FileInput, hashList, repeat, sim=80, autoDelete=False, n=0):
 
+    import tkinter as tk
+    from tkinter import filedialog, messagebox
+    from PIL import Image, ImageTk
+    global tmpRoot, image_cache
+    first = 0
+    image_cache = []
+
+    FileInput = FileInput.replace("\\", "/")
+
+    if n == 0:
+        text = f'Scanning for {FileInput.split("/")[-1]}'
+    else:
+        text = f'Scanning for {FileInput.split("/")[-1]}. {n}/{len(hashList)}'
+
+    print(text)
+
+    # Scan for similar files
+    dir = os.path.dirname(FileInput)
+    s = find_similar(FileInput, dir, sim, hashList)
+
+
+    if len(s["files"]) <= 1:
+        if not repeat:
+            messagebox.showinfo("No similar Images", "There were no similar images found")
+        return
+
+    if autoDelete:
+        deletePath = os.path.join(dir, "deleted").replace("\\", "/")
+        if not os.path.exists(deletePath):
+            os.mkdir(deletePath)
+
+        for file in s["files"]:
+            if file["isSelf"]:
+                continue
+
+            dir = s["directory"]
+            f = file["filename"].replace("\\", "/").split("/")[-1]
+            os.rename(os.path.join(dir, f).replace("\\", "/"), os.path.join(deletePath, f).replace("\\", "/"))
+            s["files"].remove(file)
+
+            for f in hashList:
+                if file["filename"] == f:
+                    hashList.remove(file)
+
+        return
+
+
+    first = 0
+
+    # Allow the selection of which files to keep and which to delete
+    root = tk.Tk()
+    root.title(f'Similar to {FileInput.split("/")[-1]}')
+    root.geometry('800x800')
+    root.config(bg='#222222', bd=0, padx=0, pady=0, highlightthickness=0)
+    root.bind('<Escape>', lambda event: root.state('normal'))
+    root.bind('<F11>', lambda event: root.state('zoomed'))
+
+    class Slide(tk.Label):
+        def __init__(self, master, image_path: str = '', scale: float = 1.0, **kwargs):
+            tk.Label.__init__(self, master, **kwargs)
+            self.configure(bg=master['bg'])
+            self.img = None if not image_path else Image.open(image_path)
+            self.p_img = None
+            self.scale = scale
+            self.bind("<Configure>", self.resizing)
+
+        def set_image(self, image_path: str, s=False):
+            image_path = image_path.replace("\\", "/")
+            backslash = "/"
+            r = image_path.split(backslash)[-1]
+            if s:
+                root.title(f'Original Image: {r}')
+            else:
+                root.title(f'Image: {r}')
+
+            name.config(text=r)
+
+            self.img = Image.open(image_path)
+            try:
+                self.resizing()
+            except:
+                pass
+
+        # Auto resize to window
+        def resizing(self, event=None):
+            if self.img:
+                iw, ih = self.img.width, self.img.height
+                mw, mh = self.master.winfo_width(), self.master.winfo_height()
+
+                if iw > ih:
+                    ih = ih * (mw / iw)
+                    r = mh / ih if (ih / mh) > 1 else 1
+                    iw, ih = mw * r, ih * r
+                else:
+                    iw = iw * (mh / ih)
+                    r = mw / iw if (iw / mw) > 1 else 1
+                    iw, ih = iw * r, mh * r
+
+                self.p_img = ImageTk.PhotoImage(self.img.resize((int(iw * self.scale), int(ih * self.scale))), master=self.master)
+                self.config(image=self.p_img)
+
+    total = 0
+    slide_num = 0
+
+    def get_slides(event=None):
+        global total
+        cache = []
+
+        if len(s["files"]) <= 1:
+            root.destroy()
+            return
+
+        for file in s["files"]:
+            cache.append(os.path.join(dir, file["filename"]))
+
+        return cache
+
+    image_cache = get_slides()
+
+    def commit_slide(n, t):
+        try:
+
+            if s["files"][n]["isSelf"]:
+                slide.set_image(image_cache[n], True)
+            else:
+                slide.set_image(image_cache[n])
+            # image_cache.remove(image_cache[n])
+
+            status.config(text=f'{n + 1} of {t} images')
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+
+
+    def next_slide(event=None):
+        global slide_num, total, first
+
+        slide_num = (slide_num + 1) % len(image_cache)  # wrap
+        commit_slide(slide_num, len(image_cache))
+
+    root.bind('<Key-Right>', next_slide)
+
+    def previous_slide(event=None):
+        global slide_num, total, first
+
+        slide_num = range(len(image_cache))[slide_num - 1]  # wrap
+        commit_slide(slide_num, len(image_cache))
+
+    def deleteFile(event=None):
+        global slide_num, image_cache, total
+
+        if s["files"][slide_num]["isSelf"]:
+            answer = messagebox.askokcancel("Original Image", "Are you sure you want to delete the Original Image")
+        else:
+            answer = messagebox.askokcancel("Delete similar Image", "Are you sure you want to delete this similar image")
+        if not answer:
+            return
+
+
+        total -= 1
+
+        f = image_cache[slide_num].replace("\\", "/").split("/")[-1]
+        deletePath = os.path.join(dir, "deleted")
+        if not os.path.exists(deletePath):
+            os.mkdir(deletePath)
+
+        os.rename(os.path.join(dir, f), os.path.join(deletePath, f))
+        for file in s["files"]:
+            if file["filename"] == f:
+                s["files"].remove(file)
+
+        for file in hashList:
+            if file["filename"] == image_cache[slide_num].replace("\\", "/"):
+                hashList.remove(file)
+
+
+        if len(s["files"]) <= 1:
+            try:
+                root.destroy()
+            except:
+                pass
+            return
+
+        image_cache = get_slides()
+
+        slide_num = range(len(image_cache))[slide_num - 1]  # wrap
+        commit_slide(slide_num, len(image_cache))
+
+
+    def exit_app():
+        try:
+            root.quit()
+            root.destroy()
+            return
+        except:
+            pass
+
+    root.bind('<Key-Left>', previous_slide)
+    root.bind('<Delete>', deleteFile)
+
+    # init display widgets
+    slide = Slide(root)
+    slide.pack()
+
+    tk.Button(root, text='prev', command=previous_slide, fg="white", bg="#555555", padx=5, pady=3, font=("Calibri", 12)).place(relx=.02, rely=.99, anchor='sw')
+    tk.Button(root, text='next', command=next_slide, fg="white", bg="#555555", padx=5, pady=3, font=("Calibri", 12)).place(relx=.98, rely=.99, anchor='se')
+    tk.Button(root, text='Exit', command=exit_app, fg="white", bg="#555555", padx=5, pady=3, font=("Calibri", 12)).place(relx=.90, rely=.99, anchor='se')
+    tk.Button(root, text='Remove', command=deleteFile, fg="white", bg="#555555", padx=5, pady=3, font=("Calibri", 12)).place(relx=.10, rely=.99, anchor='sw')
+
+
+
+    status = tk.Label(root, fg="white", bg="#222222", padx=15, pady=10, font=("Calibri", 12, 'bold'))
+    status.place(relx=.5, rely=.99, anchor='s')
+
+    name = tk.Label(root, text="None", fg="white", bg="#222222", padx=5, pady=5, font=("Calibri", 12, 'bold'))
+    name.place(anchor='nw')
+
+    try:
+        slide_num = 0
+        next_slide()
+        previous_slide()
+        root.focus_force()
+        center(root)
+        root.mainloop()
+    except:
+        pass
 
 if __name__ == '__main__':
-    Main()
+    parser = argparse.ArgumentParser(description='by Jannis Martensen')
+    parser.add_argument("-t", action=argparse.BooleanOptionalAction, help='Terminal Mode', required=False)
+    parser.add_argument("-p", type=str, default=None, help='Path/File to search')
+    parser.add_argument("-d", action=argparse.BooleanOptionalAction, help='AutoDelete', required=False)
+    parser.add_argument("-s", type=int, default=80, help='Similarity Percentage')
+
+    args = parser.parse_args()
+    t = args.t
+    print(t)
+    path = args.p
+    autoDelete = args.d
+    sim = args.s
+
+
+    if not t:
+        Main()
+
+    else:
+        if not path:
+            path = input("Please specify a filepath: ")
+
+        from glob import glob
+        hash_size = 80
+        # find all image files in this folder
+        png_files = list(glob(path + "*/*.png", recursive=False))
+        jpg_files = list(glob(path + "*/*.jpg", recursive=False))
+        bmp_files = list(glob(path + "*/*.bmp", recursive=False))
+        gif_files = list(glob(path + "*/*.gif", recursive=False))
+        jpeg_files = list(glob(path + "*/*.jpeg", recursive=False))
+        cache = png_files + jpg_files + bmp_files + gif_files + jpeg_files
+
+        # Log window
+        hashList = []
+
+        # Store hashes for each file in list
+        for file, n in zip(cache, range(len(cache))):
+            hashList.append({"filename": file.replace("\\", "/"), "hash": get_hash(file, hash_size)})
+            fn = file.replace("\\", "/").split("/")[-1]
+
+            text = f'Creating hash for {fn}. {n+1}/{len(cache)}'
+            print(text)
+
+
+
+        # Scan each file for duplicates
+        for f, n in zip(cache, range(len(cache))):
+            singleFile(f, hashList, True, sim, autoDelete, n+1)
+
+
+
+        # End of processing
+        try:
+            text = f"Finished processing {len(cache)} files"
+            print(text)
+            input("< Press enter to exit >")
+            exit(1)
+
+        except:
+            pass
