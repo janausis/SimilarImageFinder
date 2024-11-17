@@ -1,5 +1,3 @@
 imagehash
 pillow
 numpy
-tkinter
-glob

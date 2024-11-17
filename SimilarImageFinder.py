@@ -1,6 +1,7 @@
 import os
 import imagehash
-from PIL import Image
+from PIL import Image, ImageFile
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 import numpy as np
 import threading
 import argparse
@@ -107,8 +108,11 @@ def Main():
     global tmpRoot
 
     root = tk.Tk()
+
+
     root.title('Similar Image Finder')
     root.geometry('300x220')
+    root.attributes('-zoomed', True)
     root.config(bg='#222222', bd=0, padx=0, pady=0, highlightthickness=0)
 
     def exit_app():
@@ -179,8 +183,10 @@ def findInFolder(MainFile=None, autoDelete=False):
     # Log window
     hashList = []
     root2 = tk.Tk()
+
     root2.title(f'Log')
     root2.geometry('700x350')
+    root2.attributes('-zoomed', True)
     root2.config(bg='#222222', bd=0, padx=0, pady=0, highlightthickness=0)
     center(root2)
 
@@ -303,10 +309,11 @@ def singleFile(FileInput, hashList, mylist, repeat, autoDelete=False, n=0, root3
     # Allow the selection of which files to keep and which to delete
     root = tk.Tk()
     root.title(f'Similar to {FileInput.split("/")[-1]}')
-    root.geometry('800x800')
+    root.geometry('1000x2000')
+    root.attributes('-zoomed', True)
     root.config(bg='#222222', bd=0, padx=0, pady=0, highlightthickness=0)
     root.bind('<Escape>', lambda event: root.state('normal'))
-    root.bind('<F11>', lambda event: root.state('zoomed'))
+    root.bind('<F11>', lambda event: root.attributes('-zoomed', True))
 
     class Slide(tk.Label):
         def __init__(self, master, image_path: str = '', scale: float = 1.0, **kwargs):
@@ -402,13 +409,6 @@ def singleFile(FileInput, hashList, mylist, repeat, autoDelete=False, n=0, root3
     def deleteFile(event=None):
         global slide_num, image_cache, total
 
-        if s["files"][slide_num]["isSelf"]:
-            answer = messagebox.askokcancel("Original Image", "Are you sure you want to delete the Original Image")
-        else:
-            answer = messagebox.askokcancel("Delete similar Image", "Are you sure you want to delete this similar image")
-        if not answer:
-            return
-
 
         total -= 1
 
@@ -432,6 +432,7 @@ def singleFile(FileInput, hashList, mylist, repeat, autoDelete=False, n=0, root3
                 root.destroy()
             except:
                 pass
+            root.quit()
             return
 
         image_cache = get_slides()
@@ -478,6 +479,7 @@ def singleFile(FileInput, hashList, mylist, repeat, autoDelete=False, n=0, root3
     except:
         pass
 
+"""
 def singleFile(FileInput, hashList, repeat, sim=80, autoDelete=False, n=0):
 
     import tkinter as tk
@@ -535,7 +537,7 @@ def singleFile(FileInput, hashList, repeat, sim=80, autoDelete=False, n=0):
     root.geometry('800x800')
     root.config(bg='#222222', bd=0, padx=0, pady=0, highlightthickness=0)
     root.bind('<Escape>', lambda event: root.state('normal'))
-    root.bind('<F11>', lambda event: root.state('zoomed'))
+    root.bind('<F11>', lambda event: root.attributes('-zoomed', True))
 
     class Slide(tk.Label):
         def __init__(self, master, image_path: str = '', scale: float = 1.0, **kwargs):
@@ -706,6 +708,7 @@ def singleFile(FileInput, hashList, repeat, sim=80, autoDelete=False, n=0):
         root.mainloop()
     except:
         pass
+"""
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='by Jannis Martensen')
